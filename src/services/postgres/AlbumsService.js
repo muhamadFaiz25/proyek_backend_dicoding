@@ -48,7 +48,7 @@ class AlbumsService {
       values: [name, year, id],
     }
 
-    const result = await this._pool.query(query)
+    const result = await this._pool.query(query);
     if (!result.rowCount) {
       throw new NotFoundError('Cannot find album ID!')
     }

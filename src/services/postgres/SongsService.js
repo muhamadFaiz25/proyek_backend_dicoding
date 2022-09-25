@@ -14,7 +14,7 @@ class SongsService{
 
     const  query = {
       text:'INSERT INTO songs VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',
-      values: [`song-${id}`,title,year,genre,performer,duration,albumId]
+      values: [`song-${id}`,title,year,performer,genre,duration,albumId]
     };
 
     const result = await this._pool.query(query);
@@ -29,7 +29,7 @@ class SongsService{
   async getSongs({ title, performer }){
     const query = `SELECT id, title, performer FROM songs WHERE LOWER(title) LIKE LOWER('%${title}%') AND LOWER(performer) LIKE LOWER('%${performer}%')`
     const result = await this._pool.query(query)
-    return result.rows
+    return result.rows;
   }
 
   async getSongById(id) {
@@ -38,14 +38,14 @@ class SongsService{
       values: [id],
     }
 
-    const result = await this._pool.query(query)
+    const result = await this._pool.query(query);
 
-    if (!result.rows.length === 0) {
-      throw new NotFoundError('Not found music ID!')
+    if (!result.rowCount) {
+      throw new NotFoundError('Not found music ID!');
     }
 
 
-    return console.log(result.rows);
+    return result.rows.map(mapDBToModel)[0];
   }
 
   async getSongsByAlbumId(albumId) {
@@ -62,11 +62,11 @@ class SongsService{
     title, year, performer, genre, duration, albumId,
   }) {
     const query = {
-      text: "UPDATE songs SET title = $1, year = $2, performer = $3, genre = $4, duration = $5, album_id = $6 WHERE id = $7 RETURNING id",
+      text: 'UPDATE songs SET title = $1, year = $2, performer = $3, genre = $4, duration = $5, album_id = $6 WHERE id = $7 RETURNING id',
       values: [title, year, performer, genre, duration, albumId, id],
     }
 
-    const result = await this._pool.query(query)
+    const result = await this._pool.query(query);
 
     if (!result.rowCount) {
       throw new NotFoundError('Failed to update music, ID not found!')
