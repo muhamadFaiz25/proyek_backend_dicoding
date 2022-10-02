@@ -1,35 +1,37 @@
-const { nanoid } = require("nanoid");
-const { Pool } = require("pg");
-const InvariantError = require("../../exceptions/InvariantError");
+const { nanoid } = require('nanoid');
+const { Pool } = require('pg');
+const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
-const { mapDBToModel } = require("../../utils");
+const { mapDBToModel } = require('../../utils');
 
-class SongsService{
-  constructor(){
-    this._pool = new Pool();
+class SongsService {
+  constructor() {
+    this._pool = new Pool()
   }
 
-  async addSong({title,year,genre,performer,duration,albumId}){
-    const id = nanoid(16);
+  async addSongs({
+    title, year, performer, genre, duration, albumId,
+  }) {
+    const id = `song-${nanoid(16)}`
 
-    const  query = {
-      text:'INSERT INTO songs VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',
-      values: [`song-${id}`,title,year,performer,genre,duration,albumId]
-    };
-
-    const result = await this._pool.query(query);
-
-    if(!result.rows[0].id){
-      throw new InvariantError('lagu gagal ditambahkan');
+    const query = {
+      text: 'INSERT INTO songs VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+      values: [id, title, year, performer, genre, duration, albumId],
     }
 
-    return result.rows[0].id;
+    const result = await this._pool.query(query)
+
+    if (!result.rows[0].id) {
+      throw new InvariantError('Failed to add music!')
+    }
+
+    return result.rows[0].id
   }
 
-  async getSongs({ title, performer }){
+  async getSongs({ title, performer }) {
     const query = `SELECT id, title, performer FROM songs WHERE LOWER(title) LIKE LOWER('%${title}%') AND LOWER(performer) LIKE LOWER('%${performer}%')`
     const result = await this._pool.query(query)
-    return result.rows;
+    return result.rows
   }
 
   async getSongById(id) {
@@ -38,14 +40,13 @@ class SongsService{
       values: [id],
     }
 
-    const result = await this._pool.query(query);
+    const result = await this._pool.query(query)
 
     if (!result.rowCount) {
-      throw new NotFoundError('Not found music ID!');
+      throw new NotFoundError('Not found music ID!')
     }
 
-
-    return result.rows.map(mapDBToModel)[0];
+    return result.rows.map(mapDBToModel)[0]
   }
 
   async getSongsByAlbumId(albumId) {
@@ -66,24 +67,36 @@ class SongsService{
       values: [title, year, performer, genre, duration, albumId, id],
     }
 
-    const result = await this._pool.query(query);
+    const result = await this._pool.query(query)
 
     if (!result.rowCount) {
       throw new NotFoundError('Failed to update music, ID not found!')
     }
   }
 
-
-  async deleteSongById(id){
+  async deleteSongById(id) {
     const query = {
       text: 'DELETE FROM songs WHERE id = $1 RETURNING id',
       values: [id],
-    };
- 
-    const result = await this._pool.query(query);
+    }
+
+    const result = await this._pool.query(query)
 
     if (!result.rowCount) {
-      throw new NotFoundError('Lagu gagal dihapus. Id tidak ditemukan');
+      throw new NotFoundError('Failed to delete a music, ID not found!')
+    }
+  }
+
+  async verifyExistingSongById(id) {
+    const query = {
+      text: 'SELECT * FROM songs WHERE id = $1',
+      values: [id],
+    }
+
+    const result = await this._pool.query(query)
+
+    if (!result.rowCount) {
+      throw new NotFoundError('Not found music ID!')
     }
   }
 }
