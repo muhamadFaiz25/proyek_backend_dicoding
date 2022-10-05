@@ -103,7 +103,7 @@ class playlistsHandler {
     const { id: userId } = auth.credentials
 
     await this._service.verifyPlaylistAccess(playlistId, userId)
-    await this._service.deleteSongFromPlaylistBySongId(songId)
+    await this._service.deleteSongFromPlaylistBySongId(songId, playlistId)
     await this._service.addPlaylistActivities('delete', { playlistId, userId, songId })
 
     return {

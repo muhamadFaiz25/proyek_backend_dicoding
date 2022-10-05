@@ -1,11 +1,5 @@
 const mapDBToModel = ({
-  id,
-  title,
-  year,
-  performer,
-  genre,
-  duration,
-  album_id,
+  id, title, year, performer, genre, duration, inserted_at, updated_at,
 }) => ({
   id,
   title,
@@ -13,7 +7,20 @@ const mapDBToModel = ({
   performer,
   genre,
   duration,
-  albumId: album_id,
-});
+  insertedAt: inserted_at,
+  updatedAt: updated_at,
+})
 
-module.exports = { mapDBToModel };
+const mapAlbumToModel = ({
+  id,
+  name,
+  year,
+  cover,
+}) => ({
+  id,
+  name,
+  year,
+  coverUrl: cover ? `http://${process.env.HOST}:${process.env.PORT}/albums/cover/${cover}` : null,
+})
+
+module.exports = { mapDBToModel, mapAlbumToModel }

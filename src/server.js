@@ -2,8 +2,11 @@ require('dotenv').config()
 
 const Hapi = require('@hapi/hapi')
 const Jwt = require('@hapi/jwt')
+const Inert = require('@hapi/inert')
+const path = require('path')
 
-const ClientError = require('./exceptions/ClientError')
+// error for pre response
+const errorPreResponse = require('./api/errors')
 
 // songs
 const songs = require('./api/songs')
@@ -36,14 +39,27 @@ const collaborations = require('./api/collaborations')
 const CollaborationsService = require('./services/postgres/CollaborationsService')
 const CollaborationsValidator = require('./validator/collaborations')
 
-// truncate
+// exports
+const _exports = require('./api/exports')
+const ProducerService = require('./services/exports/ProducerService')
+const ExportsValidator = require('./validator/exports')
+
+// caching
+const CacheControl = require('./services/cache/CacheControl')
+
+// truncates
 const truncate = require('./api/truncate')
 const truncateValidator = require('./validator/truncate')
 const TruncateService = require('./services/postgres/TruncateDBService')
 
 const initServer = async () => {
-  const collaborationsService = new CollaborationsService()
-  const playlistsService = new PlaylistsService({ collaborationsService, songsService: new SongsService() })
+  const cacheControl = new CacheControl()
+  const albumsService = new AlbumsService({ coverUploadFolder: path.resolve(__dirname, process.env.UPLOADS_DIRECTORY), cacheControl })
+  const songsService = new SongsService(cacheControl)
+  const usersService = new UsersService()
+  const authenticationsService = new AuthenticationsService()
+  const collaborationsService = new CollaborationsService(cacheControl)
+  const playlistsService = new PlaylistsService({ collaborationsService, songsService: new SongsService(), cacheControl })
 
   const server = Hapi.server({
     host: process.env.HOST,
@@ -59,8 +75,12 @@ const initServer = async () => {
     {
       plugin: Jwt,
     },
+    {
+      plugin: Inert,
+    },
   ])
 
+  // mendefinisikan strategy autentikasi jwt
   server.auth.strategy('openmusic_jwt', 'jwt', {
     keys: process.env.ACCESS_TOKEN_KEY,
     verify: {
@@ -81,29 +101,32 @@ const initServer = async () => {
     {
       plugin: albums,
       options: {
-        albumsService: new AlbumsService(),
+        albumsService,
         validator: AlbumsValidator,
       },
     },
     {
+      plugin: errorPreResponse,
+    },
+    {
       plugin: songs,
       options: {
-        service: new SongsService(),
+        service: songsService,
         validator: SongsValidator,
       },
     },
     {
       plugin: users,
       options: {
-        service: new UsersService(),
+        service: usersService,
         validator: UsersValidator,
       },
     },
     {
       plugin: authentications,
       options: {
-        authenticationsService: new AuthenticationsService(),
-        usersService: new UsersService(),
+        authenticationsService,
+        usersService,
         tokenManager: TokenManager,
         validator: AuthenticationsValidator,
       },
@@ -120,8 +143,16 @@ const initServer = async () => {
       options: {
         collaborationsService,
         playlistsService,
-        usersService: new UsersService(),
+        usersService,
         validator: CollaborationsValidator,
+      },
+    },
+    {
+      plugin: _exports,
+      options: {
+        exportsService: ProducerService,
+        playlistsService,
+        validator: ExportsValidator,
       },
     },
     {
@@ -132,35 +163,6 @@ const initServer = async () => {
       },
     },
   ])
-
-  server.ext('onPreResponse', (request, h) => {
-    const { response } = request
-
-    if (response instanceof Error) {
-      if (response instanceof ClientError) {
-        const newResponse = h.response({
-          status: 'fail',
-          message: response.message,
-        })
-
-        newResponse.code(response.statusCode)
-        return newResponse
-      }
-      if (!response.isServer) {
-        return h.continue
-      }
-
-      const newResponse = h.response({
-        status: 'error',
-        message: 'Maaf, terjadi kegagalan pada server.',
-      })
-
-      newResponse.code(500)
-      return newResponse
-    }
-
-    return h.continue || response
-  })
 
   server.start()
   console.log(`Server telah berjalan pada ${server.info.uri}`)

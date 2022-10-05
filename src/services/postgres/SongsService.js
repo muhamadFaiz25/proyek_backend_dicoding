@@ -1,19 +1,19 @@
-const { nanoid } = require('nanoid');
-const { Pool } = require('pg');
-const InvariantError = require('../../exceptions/InvariantError');
-const NotFoundError = require('../../exceptions/NotFoundError');
-const { mapDBToModel } = require('../../utils');
+const { Pool } = require('pg')
+const { nanoid } = require('nanoid')
+const InvariantError = require('../../exceptions/InvariantError')
+const NotFoundError = require('../../exceptions/NotFoundError')
+const { mapDBToModel } = require('../../utils/index')
 
 class SongsService {
-  constructor() {
+  constructor(cacheControl) {
     this._pool = new Pool()
+    this._cacheControl = cacheControl
   }
 
   async addSongs({
     title, year, performer, genre, duration, albumId,
   }) {
     const id = `song-${nanoid(16)}`
-
     const query = {
       text: 'INSERT INTO songs VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
       values: [id, title, year, performer, genre, duration, albumId],
@@ -25,12 +25,14 @@ class SongsService {
       throw new InvariantError('Failed to add music!')
     }
 
+    await this._cacheControl.del('songs')
     return result.rows[0].id
   }
 
   async getSongs({ title, performer }) {
     const query = `SELECT id, title, performer FROM songs WHERE LOWER(title) LIKE LOWER('%${title}%') AND LOWER(performer) LIKE LOWER('%${performer}%')`
     const result = await this._pool.query(query)
+
     return result.rows
   }
 
@@ -43,7 +45,7 @@ class SongsService {
     const result = await this._pool.query(query)
 
     if (!result.rowCount) {
-      throw new NotFoundError('Not found music ID!')
+      throw new NotFoundError('Music tidak ditemukan')
     }
 
     return result.rows.map(mapDBToModel)[0]
@@ -56,6 +58,7 @@ class SongsService {
     }
 
     const result = await this._pool.query(query)
+    await this._cacheControl.set(`song:inAlbum:${albumId}`, JSON.stringify(result.rows))
     return result.rows
   }
 
@@ -83,8 +86,10 @@ class SongsService {
     const result = await this._pool.query(query)
 
     if (!result.rowCount) {
-      throw new NotFoundError('Failed to delete a music, ID not found!')
+      throw new NotFoundError('Gagal menghapus music. Id tidak ditemukan!')
     }
+
+    await this._cacheControl.del('songs')
   }
 
   async verifyExistingSongById(id) {
@@ -101,4 +106,4 @@ class SongsService {
   }
 }
 
-module.exports = SongsService;
+module.exports = SongsService
