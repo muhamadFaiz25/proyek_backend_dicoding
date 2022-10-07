@@ -5,7 +5,7 @@ class CacheControl {
   constructor() {
     this._client = redis.createClient({
       socket: {
-        host: process.env.REDIS_SERVER_HOST,
+        host: process.env.REDIS_SERVER,
       },
     })
 
